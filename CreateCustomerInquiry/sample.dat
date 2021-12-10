@@ -1,3 +1,4 @@
 {
-    "message": "Das von mir bei Ihnen bestellte Produkt ist immer noch nicht eingetroffen. Ich erwarte, dass Sie die Lieferung umgehend veranlassen. Ansonsten sehe ich mich gezwungen, weitere Schritte zu setzen. Ansonsten bin ich mit ihrem Kundenservice bisher aber zufrieden gewesen."
+    "customerEmail": "max.mustermann@musterfirma.at",
+    "message": "Ich bin mit Ihrem Kundenservice sehr unzufrieden. Ich habe bereits vor Tagen eine Bestellung aufgegeben und noch immer nicht erhalten. Auf meine mehrfachen Anfragen hat bisher niemand reagiert."
 }

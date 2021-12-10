@@ -1,0 +1,206 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "functionAppName": {
+            "type": "string",
+            "defaultValue": "fh-demo-functions-codejs"
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "fhdemofunctionsstorage"
+        },
+        "cosmosDbAccountName": {
+            "type": "string",
+            "defaultValue": "cosmosdbtryout"
+        },
+        "appInsightsName": {
+            "type": "string",
+            "defaultValue": "fh-demo-functions-codejs"
+        },
+        "cognitiveServicesEndpointUri": {
+            "type": "string",
+            "defaultValue": "https://"
+        },
+        "cognitiveServicesApiKey": {
+            "type": "string",
+            "defaultValue": "abc123"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "cosmosDbDatabaseName": "CustomerInquiryDb",
+        "cosmosDbContainerName": "CustomerInquiries"
+    },
+    "resources": [
+        {
+            "name": "[parameters('storageAccountName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2021-04-01",
+            "tags": {
+                "displayName": "[parameters('storageAccountName')]"
+            },
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            }
+        },
+        {
+            "name": "[parameters('cosmosDbAccountName')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts",
+            "apiVersion": "2021-05-15",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "kind": "GlobalDocumentDB",
+            "properties": {
+                "consistencyPolicy": {
+                    "defaultConsistencyLevel": "Session"
+                },
+                "locations": [
+                    {
+                        "locationName": "[resourceGroup().location]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "databaseAccountOfferType": "Standard",
+                "enableAutomaticFailover": true
+            }
+        },
+        {
+            "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+            "name": "[concat(parameters('cosmosDbAccountName'), '/sql/', variables('cosmosDbDatabaseName'))]",
+            "apiVersion": "2016-03-31",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/', parameters('cosmosDbAccountName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "id": "[variables('cosmosDbDatabaseName')]"
+                },
+                "options": {
+                    "throughput": "400"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+            "name": "[concat(parameters('cosmosDbAccountName'), '/sql/', variables('cosmosDbDatabaseName'), '/', variables('cosmosDbContainerName'))]",
+            "apiVersion": "2016-03-31",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', parameters('cosmosDbAccountName'), 'sql', variables('cosmosDbDatabaseName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "id": "[variables('cosmosDbContainerName')]",
+                    "partitionKey": {
+                        "paths": [
+                            "/inquiryDate"
+                        ],
+                        "kind": "hash"
+                    },
+                    "indexingPolicy": {
+                        "indexingMode": "consistent",
+                        "includedPaths": [
+                            {
+                                "path": "/*"
+                            }
+                        ],
+                        "excludedPaths": [
+                            {
+                                "path": "/PathToNotIndex/*"
+                            }
+                        ]
+                    }
+                },
+                "options": {}
+            }
+        },
+        {
+            "name": "[parameters('appInsightsName')]",
+            "type": "Microsoft.Insights/components",
+            "kind": "web",
+            "apiVersion": "2014-04-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('functionAppName'))]": "Resource",
+                "displayName": "[concat(parameters('appInsightsName'), ' for ', parameters('functionAppName'))]"
+            },
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[parameters('appInsightsName')]"
+            }
+        },
+        {
+            "name": "[parameters('functionAppName')]",
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2020-12-01",
+            "location": "[resourceGroup().location]",
+            "kind": "functionapp,linux",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "reserved": true,
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "AzureWebJobsDashboard",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "[toLower(parameters('functionAppName'))]"
+                        },
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~2"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "node"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                        },
+                        {
+                            "name": "CosmosDbEndpointUri",
+                            "value": "[concat('https://', toLower(parameters('cosmosDbAccountName')), '.documents.azure.com:443/')]"
+                        },
+                        {
+                            "name": "CosmosDbReadWriteKey",
+                            "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey]"
+                        },
+                        {
+                            "name": "CosmosDbDatabaseId",
+                            "value": "[variables('cosmosDbDatabaseName')]"
+                        },
+                        {
+                            "name": "CosmosDbContainerId",
+                            "value": "[variables('cosmosDbContainerName')]"
+                        },
+                        {
+                            "name": "CognitiveServicesApiKey",
+                            "value": "[parameters('cognitiveServicesApiKey')]"
+                        },
+                        {
+                            "name": "CognitiveServicesEndpointUri",
+                            "value": "[parameters('cognitiveServicesEndpointUri')]"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
