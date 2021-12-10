@@ -4,6 +4,10 @@
     "AzureWebJobsStorage": "",
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "CognitiveServicesApiKey": "<Paste Cognitive Services API key here>",
-    "CognitiveServicesEndpointUri": "<Paste Cognitive Services Endpoint URI here>"
+    "CognitiveServicesEndpointUri": "<Paste Cognitive Services Endpoint URI here>",
+    "CosmosDbEndpointUri": "<Paste DocumentDb Endpoint URI here>",
+    "CosmosDbReadWriteKey": "<Paste DocumentDb ReadWrite Key here>",
+    "CosmosDbDatabaseId": "CustomerInquiryDb",
+    "CosmosDbContainerId": "CustomerInquiries"
   }
 }
